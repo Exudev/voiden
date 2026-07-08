@@ -431,12 +431,23 @@ export interface BlockOutlineMeta {
    * appear as standalone entries (e.g. `method`, `url` inside a `request` container).
    */
   skip?: boolean;
+  /**
+   * URL to the canonical documentation page for this block type.
+   * When set, a small external-link icon is shown in the block header.
+   * Clicking it opens the URL in the system browser.
+   */
+  docsUrl?: string;
 }
 const blockOutlineRegistry = new Map<string, BlockOutlineMeta>();
 
 /** Returns the outline metadata registered by a plugin for a given node type. */
 export function getBlockOutlineMeta(nodeType: string): BlockOutlineMeta | undefined {
   return blockOutlineRegistry.get(nodeType);
+}
+
+/** Returns the docs URL registered for a given node type, if any. */
+export function getBlockDocsUrl(nodeType: string): string | undefined {
+  return blockOutlineRegistry.get(nodeType)?.docsUrl;
 }
 
 // Global registry for loaded plugin instances (for cleanup)

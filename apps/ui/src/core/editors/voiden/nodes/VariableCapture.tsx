@@ -43,6 +43,7 @@ const createNodeView =
           editor={editor}
           importedDocumentId={node.attrs.importedFrom}
           helpContent={<RuntimeVariablesHelp />}
+          docsUrl="https://docs.voiden.md/docs/core-features-section/voiden-blocks/runtime-block"
         />
         <div
           className="w-full max-w-full"
