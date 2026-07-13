@@ -121,4 +121,11 @@ export const filesApi = {
   acknowledgeUnsavedSaved: (requestId: string) => {
     ipcRenderer.send(`files:unsavedSavedAck:${requestId}`);
   },
+  replyUnsavedTabs: (requestId: string, titles: string[]) => {
+    ipcRenderer.send(`files:unsavedTabsReply:${requestId}`, titles);
+  },
+  resolveInheritedChain: (filePath: string, workspaceRoot: string): Promise<string[]> =>
+    ipcRenderer.invoke("files:resolveInheritedChain", filePath, workspaceRoot),
+  createInheritedConfig: (folderPath: string): Promise<{ path: string; created: boolean }> =>
+    ipcRenderer.invoke("files:createInheritedConfig", folderPath),
 };

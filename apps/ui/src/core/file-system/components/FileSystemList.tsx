@@ -18,6 +18,7 @@ import { useSearchStore } from "@/core/stores/searchStore";
 import { useBlockContentStore } from "@/core/stores/blockContentStore";
 import { usePanelStore } from "@/core/stores/panelStore";
 import { emitPluginEvent, getContextMenuItems } from "@/plugins";
+import { useSettings } from "@/core/settings/hooks/useSettings";
 
 import { ExtendedFileTree } from "./FileSystemList/types";
 import { DragOverContext, TreeActionsContext } from "./FileSystemList/contexts";
@@ -41,6 +42,8 @@ export const FileSystemList = () => {
   usePrefetchFileList();
   const { data: appState } = useGetAppState();
   const queryClient = useQueryClient();
+  const { settings } = useSettings();
+  const pendingTabsEnabled = settings?.editor?.pending_tabs ?? false;
 
   const [showDeleteProgress, setShowDeleteProgress] = useState(false);
   const [isTreeBusy, setIsTreeBusy] = useState(false);
@@ -761,6 +764,33 @@ export const FileSystemList = () => {
     if (newNode) newNode.edit();
   });
 
+  useElectronEvent<{ path: string }>("file:create-inherited-config", async (eventData) => {
+    if (!window.electron?.files?.createInheritedConfig) return;
+    const result = await window.electron.files.createInheritedConfig(eventData.path);
+    if (!result?.path) return;
+
+    // Refresh the folder so the file appears in the tree.
+    await refreshDir(eventData.path);
+
+    // Derive a meaningful tab title from the containing folder name.
+    const folderName = eventData.path.replace(/\\/g, "/").split("/").filter(Boolean).pop() ?? "inherited";
+    const inheritedTabTitle = `${folderName} — inherited`;
+
+    // Open the file in a new tab.
+    const newTab = {
+      id: crypto.randomUUID(),
+      type: "document" as const,
+      title: inheritedTabTitle,
+      source: result.path,
+      directory: null,
+    };
+    const response = await window.electron?.state.addPanelTab("main", newTab);
+    if (response?.tabId) {
+      activateTab({ panelId: "main", tabId: response.tabId });
+      queryClient.invalidateQueries({ queryKey: ["panel:tabs"] });
+    }
+  });
+
   useElectronEvent<{ path: string; type: string }>("directory:create", async (eventData) => {
     const tree = treeRef.current;
     if (!tree) return;
@@ -878,7 +908,14 @@ export const FileSystemList = () => {
             <div
               ref={dndRootElement}
               onKeyDown={async (e) => {
-                if (e.key !== "Enter") return;
+                // event.key is "Enter" regardless of modifiers, so Cmd/Ctrl+Enter
+                // (send request) was being caught here too whenever keyboard focus
+                // was still on the tree — e.g. right after single-clicking a file,
+                // since opening a tab doesn't explicitly move focus into the editor.
+                // That silently re-activated (permanently opened/promoted) the tree's
+                // currently-selected node on every request send. Only plain Enter
+                // should trigger tree-node activation.
+                if (e.key !== "Enter" || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
                 const focused = treeRef.current?.focusedNode ?? treeRef.current?.selectedNodes?.[0];
                 if (!focused || focused.data.isTemporary) return;
                 e.preventDefault();
@@ -915,6 +952,7 @@ export const FileSystemList = () => {
                       refreshDir={refreshDir}
                       expandedDirsRef={expandedDirsRef}
                       treeRef={treeRef}
+                      pendingTabsEnabled={pendingTabsEnabled}
                     />
                   )}
                 </Tree>

@@ -9,6 +9,7 @@ import { TopNavBar } from "./components/TopNavBar";
 import { StatusBar } from "./components/StatusBar";
 import OnboardingModal from "@/core/screens/OnboardingModal";
 import AboutModal from "@/core/screens/AboutModal";
+import { UnsavedChangesDialog } from "./components/UnsavedChangesDialog";
 import { useGetAppState } from "@/core/state/hooks";
 import { saveTabById, useProjectLock } from "@/core/file-system/hooks";
 import { getQueryClient } from "@/main";
@@ -23,6 +24,7 @@ import { setEnvJumpTarget } from "@/core/environment/components/EnvironmentEdito
 import { useEnvironments } from "@/core/environment/hooks";
 import { mountVariableValueTooltip, unmountVariableValueTooltip } from "@/core/editors/variableValueTooltip";
 import { usePanelStore } from "@/core/stores/panelStore";
+import { isMac } from "@/core/lib/utils";
 
 export const AppLayout = () => {
   const { toggle: toggleLeft, panelProps: leftPanelProps, isCollapsed: isLeftCollapsed } = useLeftPanel();
@@ -51,31 +53,40 @@ export const AppLayout = () => {
   // Use useLayoutEffect so panel open/close is applied before the browser paints,
   // preventing a visible flash where the old tab's panel state bleeds into the new tab.
   const activeTabId = panelTabs?.activeTabId;
-  const knownTabIdsRef = useRef<Set<string> | null>(null);
   const prevActiveTabIdRef = useRef<string | null>(null);
+  // activeTabId for which the open/close branch below has already run to
+  // completion (i.e. targetTab was found, or a saved panelStateForTab applied).
+  const settledActiveTabIdRef = useRef<string | null>(null);
   useLayoutEffect(() => {
     if (!activeTabId) return;
     const queryClient = getQueryClient();
 
+    const tabActuallyChanged = prevActiveTabIdRef.current !== activeTabId;
+
     // Save panel state for the tab we're leaving so it can be restored later.
     // This covers the case where the user opens a new file from the left panel
     // (which bypasses the tab-click handler in PanelTabs that normally saves state).
-    if (prevActiveTabIdRef.current && prevActiveTabIdRef.current !== activeTabId) {
+    if (prevActiveTabIdRef.current && tabActuallyChanged) {
       savePanelStateForTab(prevActiveTabIdRef.current);
     }
     prevActiveTabIdRef.current = activeTabId;
+
+    // panelTabs?.tabs is in the dep array so that when a newly-created tab is
+    // activated (activeTabId already points at it) before its own presence in
+    // `tabs` has caught up (addPanelTab's cache update is an async invalidate,
+    // not synchronous — see useAddPanelTab/useActivateTab in usePanelTabs.ts),
+    // this effect gets another chance to find it once `tabs` updates, instead
+    // of leaving the panel state unresolved for that tab forever. But once
+    // we've actually resolved it once for this activeTabId, further reruns
+    // caused only by an unrelated `tabs` reference change (e.g. a delayed,
+    // redundant invalidation settling after the tab was opened) must not
+    // reapply the branch below — that would stomp on panel state changed in
+    // the meantime (e.g. Cmd+Enter opening the response panel right after a
+    // tab was opened, which this effect would otherwise immediately re-close).
+    if (!tabActuallyChanged && settledActiveTabIdRef.current === activeTabId) return;
+
     const currentPanelData = queryClient.getQueryData<{ tabs?: Tab[]; activeTabId?: string }>(["panel:tabs", "main"]);
     const targetTab = currentPanelData?.tabs?.find((tab) => tab.id === activeTabId);
-    const currentTabIds = new Set((currentPanelData?.tabs || []).map((tab) => tab.id));
-
-    let isNewlyOpenedTab = false;
-    if (knownTabIdsRef.current === null) {
-      // Initialize on first run; do not treat existing restored tabs as newly opened.
-      knownTabIdsRef.current = new Set(currentTabIds);
-    } else {
-      isNewlyOpenedTab = !knownTabIdsRef.current.has(activeTabId);
-      knownTabIdsRef.current = new Set(currentTabIds);
-    }
 
     let panelStateForTab: { rightPanelOpen?: boolean; activeSidebarTabId?: string } | undefined;
     const storedStates = localStorage.getItem("panelStates");
@@ -88,7 +99,12 @@ export const AppLayout = () => {
       }
     }
 
-    if (panelStateForTab) {
+    if (targetTab?.type === "settings") {
+      // Settings is not a request/document tab: it never has a response/right panel
+      // to show, so always force it closed regardless of what the previous tab left behind.
+      closeRightPanel();
+      settledActiveTabIdRef.current = activeTabId;
+    } else if (panelStateForTab) {
       // Restore exactly what was open/closed and which sidebar tab was active for this doc tab
       panelStateForTab.rightPanelOpen ? openRightPanel() : closeRightPanel();
       if (panelStateForTab.activeSidebarTabId) {
@@ -99,11 +115,16 @@ export const AppLayout = () => {
           old ? { ...old, activeTabId: targetSidebarTabId } : old
         );
       }
+      settledActiveTabIdRef.current = activeTabId;
     } else if (targetTab?.type === "document") {
       // No saved state: close the right panel so tabs that never had it open
       // don't inherit the previous tab's open panel (and its response history).
       closeRightPanel();
+      settledActiveTabIdRef.current = activeTabId;
     }
+    // else: targetTab hasn't shown up in `tabs` yet and there's no saved state
+    // to fall back on — leave settledActiveTabIdRef alone so the next rerun
+    // (once `tabs` catches up) retries instead of silently doing nothing forever.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTabId, panelTabs?.tabs]);
 
@@ -380,10 +401,14 @@ export const AppLayout = () => {
     // Trigger find in the active editor
     // Dispatch on body (not document) so e.target has .closest()
     const target = (document.activeElement as HTMLElement) || document.body;
+    // Only set the platform's actual primary modifier — matchesShortcut()
+    // compares an exact modifier bitmask, so setting both metaKey and
+    // ctrlKey together never matches either platform's Find binding.
     target.dispatchEvent(new KeyboardEvent('keydown', {
       key: 'f',
-      metaKey: true,
-      ctrlKey: true,
+      code: 'KeyF',
+      metaKey: isMac,
+      ctrlKey: !isMac,
       bubbles: true,
     }));
   });
@@ -479,6 +504,9 @@ export const AppLayout = () => {
 
       {/* About Modal */}
       <AboutModal isOpen={isAboutModalOpen} onClose={() => setIsAboutModalOpen(false)} />
+
+      {/* In-app Unsaved Changes / Project Locked confirmation, shown when closing a dirty tab */}
+      <UnsavedChangesDialog />
     </div>
   );
 };

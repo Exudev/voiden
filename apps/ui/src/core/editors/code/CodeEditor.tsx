@@ -44,6 +44,21 @@ interface CodeEditorProps {
 const LARGE_FILE_THRESHOLD = 5 * 1024 * 1024;
 const AUTO_ENABLE_THRESHOLD = 10 * 1024 * 1024;
 const MEDIUM_FILE_THRESHOLD = 512 * 1024;
+// A single line this long is its own performance cliff (text layout/measurement
+// cost is driven by line length, not file size) — treat it like a large file
+// even when the total byte count is well under LARGE_FILE_THRESHOLD.
+const LONG_LINE_THRESHOLD = 20_000;
+
+function hasVeryLongLine(content: string): boolean {
+  let lineStart = 0;
+  for (let i = 0; i <= content.length; i++) {
+    if (i === content.length || content.charCodeAt(i) === 10) {
+      if (i - lineStart > LONG_LINE_THRESHOLD) return true;
+      lineStart = i + 1;
+    }
+  }
+  return false;
+}
 
 function debounce<T extends (...args: any[]) => any>(
   func: T,
@@ -761,7 +776,7 @@ export const CodeEditor = memo(({ tabId, content, source, panelId, isActive = tr
   const isLargeFile = useMemo(() => {
     if (streamable) return true;
     const sizeInBytes = new Blob([content]).size;
-    return sizeInBytes > LARGE_FILE_THRESHOLD;
+    return sizeInBytes > LARGE_FILE_THRESHOLD || hasVeryLongLine(content);
   }, [content, streamable]);
 
   const isMediumFile = useMemo(() => {
@@ -808,7 +823,12 @@ export const CodeEditor = memo(({ tabId, content, source, panelId, isActive = tr
       if (!cancelled) {
         setStreamProgress(null);
         const fileSize = fullSize ?? 0;
-        if (fileSize <= AUTO_ENABLE_THRESHOLD) {
+        // A file can load under AUTO_ENABLE_THRESHOLD yet still contain one
+        // pathologically long line — auto-enabling highlighting/lint would
+        // reintroduce the same layout freeze right after the loading bar
+        // finishes, so it falls back to the opt-in banner below instead.
+        const tooPathological = hasVeryLongLine(editorView.state.doc.toString());
+        if (fileSize <= AUTO_ENABLE_THRESHOLD && !tooPathological) {
           setIsApplyingFeatures(true);
           editorView.dispatch({
             effects: [
@@ -838,8 +858,8 @@ export const CodeEditor = memo(({ tabId, content, source, panelId, isActive = tr
         setUnsaved(tId, value);
       }
       updateContent(value);
-    }, isLargeFile ? 300 : 0),
-    [isLargeFile, setUnsaved, clearUnsaved, updateContent, content]
+    }, isLargeFile ? 300 : (isMediumFile ? 150 : 0)),
+    [isLargeFile, isMediumFile, setUnsaved, clearUnsaved, updateContent, content]
   );
 
   const initialContent = useMemo(() => {
@@ -955,7 +975,7 @@ export const CodeEditor = memo(({ tabId, content, source, panelId, isActive = tr
         if (editorView) setEditor(editorView);
       }
 
-      if (isLargeFile) {
+      if (isLargeFile || isMediumFile) {
         debouncedUpdate(value, tabId);
       } else {
         if (value === content) {
@@ -966,7 +986,7 @@ export const CodeEditor = memo(({ tabId, content, source, panelId, isActive = tr
         updateContent(value);
       }
     },
-    [tabId, content, source, panelId, editorView, setUnsaved, clearUnsaved, updateContent, setActiveEditor, setEditor, isLargeFile, debouncedUpdate],
+    [tabId, content, source, panelId, editorView, setUnsaved, clearUnsaved, updateContent, setActiveEditor, setEditor, isLargeFile, isMediumFile, debouncedUpdate],
   );
 
   const languageExtension = useMemo(() => {

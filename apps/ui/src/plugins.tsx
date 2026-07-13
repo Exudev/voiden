@@ -98,6 +98,86 @@ const historyExporters: Record<string, {
 type CurlImporter = (curlString: string, editor: any) => Promise<boolean>;
 const curlImporters: CurlImporter[] = [];
 
+// ── cURL extender registry ─────────────────────────────────────────────────────
+// Plugins register functions that augment the cURL command produced by
+// voiden-rest-api's CopyCurlButton. Each extender receives the fully-expanded
+// ProseMirror doc and returns headers, query params, and/or raw cURL flags to
+// append. Existing explicit request headers take precedence — extenders cannot
+// overwrite them. Called after the base request data is assembled, before
+// variable substitution (so {{variable}} placeholders are fine in returned values).
+export type CurlHeaderEntry = { key: string; value: string };
+export type CurlExtenderResult = {
+  /** Extra -H headers to add (skipped if key already present in request). */
+  headers?: CurlHeaderEntry[];
+  /** Extra query params to add (skipped if key already present). */
+  queryParams?: CurlHeaderEntry[];
+  /** Raw cURL flags appended verbatim, e.g. ['--digest', '-u "user:pass"']. */
+  flags?: string[];
+  /**
+   * Set when this auth type has no static cURL representation (e.g. Hawk,
+   * Atlassian ASAP, OAuth1 with HMAC signing — all require a live-computed
+   * signature over the exact request). Surfaced to the user as a toast
+   * instead of silently omitting the auth with no explanation.
+   */
+  warning?: string;
+};
+export type CurlHeaderExtenderFn = (doc: any) => Promise<CurlExtenderResult>;
+// Keyed by extensionId (not a plain array) so a plugin re-registering on
+// reload/HMR overwrites its own previous entry instead of accumulating a new
+// duplicate each time — an array would apply the same extender's flags once
+// per accumulated registration, multiplying auth flags in generated cURL.
+const curlHeaderExtenders = new Map<string, CurlHeaderExtenderFn>();
+
+export function registerCurlHeaderExtender(extensionId: string, fn: CurlHeaderExtenderFn): void {
+  curlHeaderExtenders.set(extensionId, fn);
+}
+
+export function getCurlHeaderExtenders(): readonly CurlHeaderExtenderFn[] {
+  return Array.from(curlHeaderExtenders.values());
+}
+
+// ── cURL auth parser registry (paste direction) ────────────────────────────────
+// The reverse of the extender above: when voiden-rest-api's curl importer parses
+// a pasted cURL command, it extracts raw auth-relevant flags/headers (it has no
+// knowledge of auth-block attr schemas — that stays owned by voiden-advanced-auth)
+// and hands them to registered parsers here, which return a ready-to-insert
+// `auth` node. Keyed by extensionId for the same reload/HMR-safety reason as
+// curlHeaderExtenders above.
+export type RawCurlAuthInput = {
+  /** From -u/--user, split on the first ":". */
+  username?: string;
+  password?: string;
+  /** Flag presence: -u interpretation depends on which of these accompany it. */
+  digest?: boolean;
+  ntlm?: boolean;
+  netrc?: boolean;
+  /** Raw --aws-sigv4 value, e.g. "aws:amz:us-east-1:execute-api". */
+  awsSigV4?: string;
+  /** Raw Authorization header value if present, e.g. "Bearer xyz" or "OAuth oauth_consumer_key=...". */
+  authorizationHeader?: string;
+};
+export type CurlAuthParseResult = {
+  /** ProseMirror JSON for a complete `auth` node, ready to insert as-is. */
+  authNode?: any;
+  /**
+   * Set when full reconstruction isn't possible from the pasted command alone
+   * (e.g. Netrc credentials live in ~/.netrc, never in the command itself;
+   * Hawk/OAuth1-HMAC secrets are one-way signed and can't be recovered).
+   * Surfaced as a toast instead of silently producing an incomplete/wrong block.
+   */
+  warning?: string;
+};
+export type CurlAuthParserFn = (raw: RawCurlAuthInput) => Promise<CurlAuthParseResult>;
+const curlAuthParsers = new Map<string, CurlAuthParserFn>();
+
+export function registerCurlAuthParser(extensionId: string, fn: CurlAuthParserFn): void {
+  curlAuthParsers.set(extensionId, fn);
+}
+
+export function getCurlAuthParsers(): readonly CurlAuthParserFn[] {
+  return Array.from(curlAuthParsers.values());
+}
+
 /**
  * Build a cURL string for a history entry, delegating to the plugin's registered builder
  * (if any) before falling back to the default REST cURL builder.
@@ -392,8 +472,14 @@ const exposedHelpers: Record<string, PluginHelpers> = {};
 
 // Global registry for linkable node types (for external file linking)
 // Core node types that are always linkable (not owned by any plugin)
-const coreLinkableNodeTypes = ['runtime-variables'];
-const coreNodeDisplayNames: Record<string, string> = { 'runtime-variables': 'Runtime Variables' };
+const coreLinkableNodeTypes = ['runtime-variables', 'paragraph', 'heading', 'codeBlock', 'blockquote'];
+const coreNodeDisplayNames: Record<string, string> = {
+  'runtime-variables': 'Runtime Variables',
+  paragraph: 'Paragraph',
+  heading: 'Heading',
+  codeBlock: 'Code Block',
+  blockquote: 'Quote',
+};
 
 const linkableNodeTypes = new Set<string>(coreLinkableNodeTypes);
 
@@ -1029,6 +1115,46 @@ export const createPlugin = (
       registerCurlImporter: (handler: CurlImporter) => {
         curlImporters.push(handler);
       },
+      /**
+       * Register a function that appends headers to the cURL command produced
+       * by CopyCurlButton. Use this to inject auth tokens or other dynamic
+       * headers that the base cURL generator doesn't handle.
+       *
+       * The extender receives the fully-expanded ProseMirror doc (imports
+       * already resolved) and returns an array of { key, value } headers.
+       * Values may contain {{variable}} placeholders — they are resolved by
+       * the existing env.replaceVariables step after cURL generation.
+       * Existing explicit request headers take precedence: the extender's
+       * headers are only added when no header with the same key already exists.
+       */
+      registerCurlHeaderExtender: (fn: CurlHeaderExtenderFn) => {
+        curlHeaderExtenders.set(extensionId, fn);
+      },
+      /**
+       * Read back the currently registered cURL header extenders. Exposed on
+       * context (like registerCurlHeaderExtender) so a *consuming* plugin
+       * (e.g. voiden-rest-api's CopyCurlButton) can fetch the list through
+       * its own reliably-wired context object, instead of a plugin bundle
+       * dynamically importing this app module by path at runtime — that
+       * cross-plugin-bundle import has no guaranteed resolution and can
+       * silently fail, silently dropping every extended auth type from
+       * generated cURL commands with no error surfaced anywhere.
+       */
+      getCurlHeaderExtenders: (): readonly CurlHeaderExtenderFn[] => getCurlHeaderExtenders(),
+      /**
+       * Register a function that turns raw auth flags/headers extracted from a
+       * pasted cURL command into a ready-to-insert `auth` node. voiden-rest-api's
+       * curl importer has no knowledge of auth-block attr schemas (that stays
+       * owned by voiden-advanced-auth) — it only extracts raw signals (-u value,
+       * --digest/--ntlm/--netrc presence, --aws-sigv4 value, Authorization
+       * header) and passes them through this registry, the paste-direction
+       * mirror of registerCurlHeaderExtender above.
+       */
+      registerCurlAuthParser: (fn: CurlAuthParserFn) => {
+        curlAuthParsers.set(extensionId, fn);
+      },
+      /** Read back registered cURL auth parsers — same rationale as getCurlHeaderExtenders. */
+      getCurlAuthParsers: (): readonly CurlAuthParserFn[] => getCurlAuthParsers(),
     } as any,
     history: {
       /**

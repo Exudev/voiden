@@ -2,6 +2,7 @@ import React, { useContext, useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChevronRight, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import { NodeApi, NodeRendererProps, TreeApi } from "react-arborist";
+const INHERITED_FILENAME = ".voiden-inherited.void";
 import { Tip } from "@/core/components/ui/Tip";
 import { cn } from "@/core/lib/utils";
 import { useActivateTab } from "@/core/layout/hooks";
@@ -12,6 +13,12 @@ import { getFileIcon } from "./fileIcon";
 import { getGitStatusClass } from "./gitStatus";
 import { RenameInput } from "./RenameInput";
 import { useTreeNodeMutations } from "./useTreeNodeMutations";
+import { useEditorStore } from "@/core/editors/voiden/VoidenEditor";
+import { getSchema } from "@tiptap/core";
+import { voidenExtensions } from "@/core/editors/voiden/extensions";
+import { prosemirrorToMarkdown } from "@/core/file-system/hooks";
+import { useEditorEnhancementStore } from "@/plugins";
+import { confirmAndSaveTab } from "@/core/stores/unsavedChangesDialogStore";
 
 export interface TreeNodeProps extends NodeRendererProps<ExtendedFileTree> {
   activeFile: { source: string } | null;
@@ -20,6 +27,7 @@ export interface TreeNodeProps extends NodeRendererProps<ExtendedFileTree> {
   refreshDir: (dirPath: string) => Promise<void>;
   expandedDirsRef: React.MutableRefObject<Set<string>>;
   treeRef: React.RefObject<TreeApi<ExtendedFileTree>>;
+  pendingTabsEnabled?: boolean;
 }
 
 const isInternalTreeDrag = (e: React.DragEvent) => e.dataTransfer.types.includes("application/x-arborist-node");
@@ -55,6 +63,7 @@ export function TreeNode({
   refreshDir,
   expandedDirsRef,
   treeRef,
+  pendingTabsEnabled,
 }: TreeNodeProps) {
   const [error, setError] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
@@ -300,6 +309,16 @@ export function TreeNode({
     }
   };
 
+  const getTabTitle = () => {
+    const isInherited = node.data.name === INHERITED_FILENAME;
+    if (isInherited) {
+      const parts = node.data.path.replace(/\\/g, "/").split("/");
+      const folderName = parts[parts.length - 2] ?? "inherited";
+      return `${folderName} — inherited`;
+    }
+    return node.data.name;
+  };
+
   const handleSelect = async (event: React.MouseEvent<HTMLDivElement>) => {
     if (event.shiftKey) {
       node.selectContiguous();
@@ -308,12 +327,30 @@ export function TreeNode({
     } else {
       node.select();
       if (node.data.type === "file") {
+        if (pendingTabsEnabled) {
+          const panelData = queryClient.getQueryData<{ tabs: Array<{ id: string; title: string; pending?: boolean; source: string | null }>; activeTabId: string }>(["panel:tabs", "main"]);
+          const existingPendingTab = panelData?.tabs?.find(t => t.pending);
+          if (existingPendingTab && existingPendingTab.source !== node.data.path) {
+            const unsavedContent = useEditorStore.getState().unsaved[existingPendingTab.id];
+            if (unsavedContent) {
+              let contentToSave = unsavedContent;
+              if (existingPendingTab.source && existingPendingTab.source.endsWith(".void")) {
+                const schema = getSchema([...voidenExtensions, ...useEditorEnhancementStore.getState().voidenExtensions]);
+                contentToSave = prosemirrorToMarkdown(unsavedContent, schema);
+              }
+              const proceed = await confirmAndSaveTab(existingPendingTab, existingPendingTab.id, contentToSave);
+              if (!proceed) return;
+            }
+          }
+        }
+
         const newTab = {
           id: crypto.randomUUID(),
           type: "document" as const,
-          title: node.data.name,
+          title: getTabTitle(),
           source: node.data.path,
           directory: null,
+          pending: pendingTabsEnabled ? true : undefined,
         };
 
         try {
@@ -327,6 +364,26 @@ export function TreeNode({
       } else {
         onFolderToggle(node);
       }
+    }
+  };
+
+  const handleDoubleClick = async (_event: React.MouseEvent<HTMLDivElement>) => {
+    if (node.data.type !== "file") return;
+    // Open as permanent (no pending flag) — promotes any existing pending tab
+    const newTab = {
+      id: crypto.randomUUID(),
+      type: "document" as const,
+      title: getTabTitle(),
+      source: node.data.path,
+      directory: null,
+    };
+    try {
+      const { tabId = null } = (await window.electron?.state.addPanelTab("main", newTab)) ?? {};
+      if (tabId) {
+        activateTab({ panelId: "main", tabId });
+      }
+    } catch {
+      // ignore
     }
   };
 
@@ -383,6 +440,7 @@ export function TreeNode({
         isSiblingHighlight && !isDragOver && !isInternalDropTargetFolder && "bg-accent/30 hover:bg-accent/30",
       )}
       onClick={handleSelect}
+      onDoubleClick={handleDoubleClick}
       onContextMenu={handleContextMenu}
       onDrop={handleDrop}
       onDragOver={handleDragOver}
@@ -404,6 +462,13 @@ export function TreeNode({
           <div className="w-30">{node.data.type !== "folder" && getFileIcon(node.data.name, node.data.path)}</div>
           {node.isEditing ? (
             <RenameInput node={node} error={error} setError={setError} onSubmit={onSubmit} setIsRenaming={setIsRenaming} />
+          ) : node.data.name === INHERITED_FILENAME ? (
+            <span className="flex items-center gap-1.5 min-w-0">
+              <span className={cn("truncate text-comment text-[11px]", nameClass)}>Config Inheritance</span>
+              <span className="flex-shrink-0 text-[9px] px-1 py-px rounded font-medium leading-none" style={{ backgroundColor: 'var(--ui-line)', color: 'var(--syntax-comment)' }}>
+                inherited
+              </span>
+            </span>
           ) : (
             <span className={cn("truncate text-ui-fg", nameClass)}>{node.data.name}</span>
           )}

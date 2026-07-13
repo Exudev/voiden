@@ -452,6 +452,9 @@ const VOIDEN_IGNORE_BLOCK = [
   '.voiden/*',
   '!.voiden/env-public.yaml',
   '!.voiden/env-*-public.yaml',
+  // Config inheritance is local-only — never meant to be shared/committed.
+  // No leading slash: matches at any depth in the project tree.
+  '.voiden-inherited.void',
 ];
 
 // Matches the basenames let through by the negation lines above.

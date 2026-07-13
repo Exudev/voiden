@@ -4,6 +4,13 @@ import { ExternalLink, HelpCircle } from "lucide-react";
 import * as Tooltip from "@radix-ui/react-tooltip";
 import { getBlockDocsUrl } from "@/plugins";
 
+function getInheritedFolderName(importedDocumentId: string): string | null {
+  const normalized = importedDocumentId.replace(/\\/g, "/");
+  if (!normalized.endsWith("/.voiden-inherited.void")) return null;
+  const parts = normalized.split("/");
+  return parts[parts.length - 2] ?? null;
+}
+
 export const RequestBlockHeader = ({
   title,
   withBorder,
@@ -48,6 +55,7 @@ export const RequestBlockHeader = ({
     }
   };
 
+  const inheritedFolder = importedDocumentId ? getInheritedFolderName(importedDocumentId) : null;
   return (
     <div
       className="h-8 px-3 flex items-center w-full border-b"
@@ -61,6 +69,14 @@ export const RequestBlockHeader = ({
         >
           {title}
         </span>
+        {inheritedFolder && (
+          <span
+            className="text-[10px] px-1.5 py-0.5 rounded"
+            style={{ color: 'var(--syntax-comment)', backgroundColor: 'var(--ui-line)' }}
+          >
+            inherited from {inheritedFolder}
+          </span>
+        )}
       </div>
 
       <div className="flex items-center gap-1">

@@ -1,5 +1,59 @@
 [
   {
+    "version": "v2.2.1",
+    "date": "10/07/2026",
+    "title": "Pending Tab & Windows Dialog Fixes",
+    "description": "Patch release fixing pending/preview tab reliability around Cmd/Ctrl+Enter and a Windows-specific bug where the app became unresponsive to keyboard input after the unsaved-changes prompt.",
+    "icon": "Bug",
+    "iconColor": "text-red-400",
+    "bgColor": "bg-gradient-to-br from-slate-900 to-red-950",
+    "changes": {
+      "Fixed": [
+        "Sending a request (Cmd/Ctrl+Enter) from a pending/preview tab no longer permanently promotes that tab — the file tree's \"Enter activates the selected file\" shortcut only checked the Enter key itself, not any modifiers, so Cmd/Ctrl+Enter was also being caught there whenever keyboard focus was still on the tree (e.g. right after opening the tab), silently re-opening it as a permanent tab",
+        "Cmd/Ctrl+Enter no longer opens the response panel and then immediately closes it again right after opening a tab — a delayed, redundant tab-list cache refresh from the tab-open flow was re-running the panel's open/close logic a second time and stomping on the panel state Cmd/Ctrl+Enter had just set",
+        "On Windows, switching away from a tab with unsaved changes no longer leaves the app unable to receive keyboard input after the \"Unsaved Changes\" prompt — that native OS dialog has been replaced with an in-app confirmation, so there's no separate OS window whose focus hand-off Windows can mishandle. The in-app dialog now also lets you Save the pending tab's changes (previously it only offered Discard or Cancel), and is fully themed to match the app instead of using unstyled default colors"
+      ]
+    }
+  },
+  {
+    "version": "v2.2.0",
+    "date": "10/07/2026",
+    "title": "Hierarchical Request Inheritance & Editor Reliability",
+    "description": "Feature release adding hierarchical inheritance for request configuration, plugin-extensible cURL export, preview tabs, and a large batch of editor reliability and usability fixes.",
+    "icon": "Sparkles",
+    "iconColor": "text-emerald-400",
+    "bgColor": "bg-gradient-to-br from-emerald-900 to-slate-900",
+    "changes": {
+      "Added": [
+        "Hierarchical inheritance for request configuration — a folder-level .voiden-inherited file can now cascade auth, headers, and other shared config down to every request nested inside it, instead of duplicating the same config in every file (#469)",
+        "Description column added to headers, query params, and options tables, so each row can carry its own documentation (#261)",
+        "Preview/pending tabs — single-clicking a file opens it in a reusable preview tab that gets replaced by the next preview, instead of always opening a new permanent tab",
+        "Plugin update notifications — a toast now appears when core or community plugin updates are available, and clicking it opens the Plugins panel directly to the Updates tab instead of leaving you to find it yourself (#486)",
+        "Plugins can now register cURL extenders to inject extra headers, query params, or raw flags into \"Copy as cURL\" output (e.g. for auth types the base generator doesn't cover)",
+        "Code ligature support (Fira Code, JetBrains Mono, etc.) and crisper font rendering across the editor and UI"
+      ],
+      "Improved": [
+        "Toggling individual header/param/option rows on and off is now far more discoverable (#130)",
+        "Generic markdown blocks (plain paragraphs, headings, code blocks) now import and link correctly instead of being silently dropped when nested inside another file's linked blocks (#321, #265)",
+        "Response viewer no longer tears down and rebuilds the entire editor on every new response — switching between requests feels noticeably snappier",
+        "Autocomplete/suggestion popups (variable capture, response suggestions) now support seamless up/down arrow navigation",
+        "Keyboard shortcut hints now show the platform-correct combination (e.g. ⌘↵ vs Ctrl+Enter) instead of always showing the Mac version (#484)",
+        "Electron now honors macOS custom keyboard remapping (Karabiner, System Settings custom shortcuts) for app-level shortcuts instead of matching the raw physical key"
+      ],
+      "Fixed": [
+        "UI flickering while scrolling in the editor (#483)",
+        "Request history is now enabled by default and correctly records the source file path — history entries were silently being skipped",
+        "App-update quit prevention no longer blocks quitting incorrectly, and environment editor in-place edits save correctly",
+        "Extremely long single lines in the code editor (e.g. minified files) no longer freeze the editor",
+        "Opening a .void file with a GraphQL block no longer shows a false \"unsaved changes\" indicator immediately on load",
+        "Quitting with unsaved tabs no longer silently saves everything to disk and exits — a dialog now lists the unsaved tabs and lets you Save All & Quit, Don't Save, or Cancel",
+        "Large .void files no longer render as an empty document — files with one very long line (e.g. a Postman import with a base64 file body inlined) were routed through a byte-chunked streaming path built for the plain code editor, which the Voiden editor never reads from",
+        "File uploads and binary request bodies now get a correct Content-Type for any file extension, not just a small hardcoded list — previously unlisted types (e.g. .md) fell back to a generic application/octet-stream that some servers reject",
+        "Backspace in the request method/URL fields and inside table cells (headers, query/path params, form data, cookies, options) now deletes on the first press instead of silently no-oping and only working on the second press"
+      ]
+    }
+  },
+  {
     "version": "v2.1.1",
     "date": "25/06/2026",
     "title": "Environment IPC Rework & Editor Fixes",

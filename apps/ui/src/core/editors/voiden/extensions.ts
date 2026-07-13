@@ -40,6 +40,20 @@ import { isSlashMenuOpen } from "./SlashCommand";
 // is determined by extension priority). A catch-all rule that runs first and absorbs
 // any typed character inside Voiden blocks / table cells prevents later rules from
 // ever seeing those characters.
+const isInRestrictedInputContext = ($from: { depth: number; node: (depth: number) => { type: { name: string } } }) => {
+  for (let d = $from.depth; d > 0; d--) {
+    const node = $from.node(d);
+    if (
+      node.type.name === 'tableCell' ||
+      node.type.name === 'tableHeader' ||
+      pasteOrchestrator.isRegisteredBlockType(node.type.name)
+    ) {
+      return true;
+    }
+  }
+  return false;
+};
+
 const DisableMarkdownInTables = Extension.create({
   name: 'disableMarkdownInTables',
   priority: 10000,
@@ -57,27 +71,50 @@ const DisableMarkdownInTables = Extension.create({
           if (text === '\n') return null;
 
           const { $from } = state.selection;
-          for (let d = $from.depth; d > 0; d--) {
-            const node = $from.node(d);
-            if (
-              node.type.name === 'tableCell' ||
-              node.type.name === 'tableHeader' ||
-              pasteOrchestrator.isRegisteredBlockType(node.type.name)
-            ) {
-              // Insert the character as plain text.
-              // A non-null return with steps on the transaction causes
-              // inputRulesPlugin to mark this event as "matched", which stops
-              // all subsequent rules (italic, bold, code, heading, etc.)
-              // from running for this keystroke.
-              state.tr.insertText(text, range.from, range.to);
-              return; // void (not null) = handled
-            }
+          if (isInRestrictedInputContext($from)) {
+            // Insert the character as plain text.
+            // A non-null return with steps on the transaction causes
+            // inputRulesPlugin to mark this event as "matched", which stops
+            // all subsequent rules (italic, bold, code, heading, etc.)
+            // from running for this keystroke.
+            state.tr.insertText(text, range.from, range.to);
+            return; // void (not null) = handled
           }
 
           return null; // Outside restricted context — let other rules apply.
         },
       }),
     ];
+  },
+
+  addKeyboardShortcuts() {
+    return {
+      // Every keystroke inside these blocks is manually inserted by the input
+      // rule above, which makes tiptap's core Keymap extension treat each one
+      // as an "undoable" input rule. Its default Backspace handling
+      // (undoInputRule) reacts by deleting that insertion and immediately
+      // re-inserting the same text, so the first Backspace after typing is a
+      // silent no-op and only the second press actually deletes a character.
+      // Do the backward delete ourselves so Backspace never reaches that path.
+      Backspace: () => {
+        const { state } = this.editor;
+        const { $from, empty } = state.selection;
+
+        if (!empty || $from.parentOffset === 0 || !isInRestrictedInputContext($from)) {
+          return false;
+        }
+
+        // Atom nodes (e.g. fileLink) aren't plain characters — some occupy
+        // more than 1 position. Deleting a hardcoded single position leaves
+        // the node un-removable instead of deleting the whole atom.
+        const nodeBefore = $from.nodeBefore;
+        if (nodeBefore && nodeBefore.type.spec.atom) {
+          return this.editor.commands.deleteRange({ from: $from.pos - nodeBefore.nodeSize, to: $from.pos });
+        }
+
+        return this.editor.commands.deleteRange({ from: $from.pos - 1, to: $from.pos });
+      },
+    };
   },
 
   addProseMirrorPlugins() {

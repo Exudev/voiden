@@ -123,7 +123,11 @@ async function getHeaders(headers: any[], auth?: any): Promise<Record<string, st
       const key = header.key;
       const value = header.value;
 
-      if (key.toLowerCase() === "content-type" && value === "multipart/form-data") {
+      // Strip any user-set multipart/form-data content-type (regardless of
+      // casing, whitespace, or a stray/stale boundary param) — the boundary
+      // must come from the actual FormData we build, or the server can't
+      // find the real part delimiter and multipart parsing breaks.
+      if (key.trim().toLowerCase() === "content-type" && value.trim().toLowerCase().startsWith("multipart/form-data")) {
         return acc;
       }
 

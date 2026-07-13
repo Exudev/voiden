@@ -8667,7 +8667,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/mime-types@npm:^2":
+"@types/mime-types@npm:^2, @types/mime-types@npm:^2.1.4":
   version: 2.1.4
   resolution: "@types/mime-types@npm:2.1.4"
   checksum: 10c0/a10d57881d14a053556b3d09292de467968d965b0a06d06732c748da39b3aa569270b5b9f32529fd0e9ac1e5f3b91abb894f5b1996373254a65cb87903c86622
@@ -9284,8 +9284,10 @@ __metadata:
   resolution: "@voiden/executors@workspace:packages/executors"
   dependencies:
     "@grpc/grpc-js": "npm:^1.10.0"
+    "@types/mime-types": "npm:^2.1.4"
     "@types/node": "npm:^20.14.10"
     "@types/ws": "npm:^8.5.10"
+    mime-types: "npm:^2.1.35"
     typescript: "npm:^5.5.3"
     ws: "npm:^8.17.0"
   languageName: unknown

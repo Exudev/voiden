@@ -193,6 +193,8 @@ declare global {
           path?: string;
           error?: string;
         }>;
+        resolveInheritedChain: (filePath: string, workspaceRoot: string) => Promise<string[]>;
+        createInheritedConfig: (folderPath: string) => Promise<{ path: string; created: boolean }>;
         onReferencesUpdated: (
           callback: (filePaths: string[]) => void,
         ) => () => void;
@@ -200,6 +202,7 @@ declare global {
           callback: (requestId: string, paths: string[]) => void,
         ) => () => void;
         acknowledgeUnsavedSaved: (requestId: string) => void;
+        replyUnsavedTabs: (requestId: string, titles: string[]) => void;
       };
       startSearch: (args: { query: string; matchCase: boolean; matchWholeWord: boolean; useRegex: boolean; useMultiline: boolean; searchId: number; fileMask?: string; dirMask?: string; includeHidden?: boolean }) => void;
       cancelSearch: (searchId: number) => void;
@@ -295,6 +298,15 @@ declare global {
           tabId: string,
           unsavedContent?: string,
         ) => Promise<{ panelId: string; tabId: string; canceled?: boolean }>;
+        closePanelTabs: (
+          panelId: string,
+          tabs: Array<{ tabId: string; unsavedContent?: string }>,
+        ) => Promise<{
+          panelId: string;
+          closedTabs: Array<{ tabId: string; panelId: string }>;
+          canceledTabs: Array<{ tabId: string; panelId: string }>;
+          allClosed: boolean;
+        }>;
         renameFile: (
           oldPath: string,
           newName: string,
@@ -313,6 +325,7 @@ declare global {
           tabId: string,
         ) => Promise<{ panelId: string; tabId: string }>;
         reorderTabs: (panelId: string, tabs: any[]) => Promise<void>;
+        promotePendingTab: (panelId: string, tabId: string) => Promise<{ panelId: string; tabId: string }>;
       };
 
       tab: {

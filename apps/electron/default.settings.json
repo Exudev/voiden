@@ -42,5 +42,9 @@
   },
   "projects": {
     "default_directory": ""
+  },
+  "history": {
+    "enabled": true,
+    "retention_days": 7
   }
 }

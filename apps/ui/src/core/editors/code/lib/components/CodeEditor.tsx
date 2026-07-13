@@ -382,8 +382,11 @@ export const CodeEditor = ({
     // Indentation support
     indentOnInput(),
     indentUnit.of("  "),
-    // Line wrapping: off for very large content (wrapping many chars → DOM bloat)
-    ...(isVeryLargeContent ? [] : [EditorView.lineWrapping]),
+    // Line wrapping: always on. For very large content this is critical —
+    // a single 500 KB+ line without wrapping creates a multi-million-pixel-wide
+    // DOM layout that hangs the browser. Wrapping keeps each visual row
+    // viewport-width wide and CodeMirror only renders visible rows.
+    EditorView.lineWrapping,
     ...codemirrorExtensionsFromStore, // Add dynamic extensions from plugins
     // Custom inline linter from validateFn prop (skip for large content)
     ...(!isLargeContent && validateFn ? [
@@ -671,6 +674,9 @@ export const CodeEditor = ({
       onPasteCapture={(event: React.ClipboardEvent) => {
         const pasted = event.clipboardData.getData("text");
         if (!pasted || lang !== "javascript") return;
+        // Only prettify if pasted content is a JSON object or array, not JavaScript code
+        const trimmed = pasted.trim();
+        if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return;
         try {
           const pretty = prettifyJSONC(pasted);
           const view = editorRef.current;

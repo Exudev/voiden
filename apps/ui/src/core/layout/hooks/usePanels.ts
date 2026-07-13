@@ -26,14 +26,27 @@ export const useLeftPanel = ({ defaultSize = 20, minSize = 0 }: UseLeftPanelProp
     return stored ? JSON.parse(stored) : false;
   });
 
+  const setLeftPanelRef = usePanelStore((state) => state.setLeftPanelRef);
+  const openLeftPanel = usePanelStore((state) => state.openLeftPanel);
+  const closeLeftPanel = usePanelStore((state) => state.closeLeftPanel);
+  const leftPanelOpen = usePanelStore((state) => state.leftPanelOpen);
+
+  // Register the ref so it can be opened imperatively from outside this component
+  // (e.g. a toast action revealing the Plugins tab).
+  useEffect(() => {
+    setLeftPanelRef(ref);
+  }, []);
+
   const toggle = () => {
     if (ref.current) {
       if (ref.current.isCollapsed()) {
         ref.current.expand();
         setIsCollapsed(false);
+        openLeftPanel();
       } else {
         ref.current.collapse();
         setIsCollapsed(true);
+        closeLeftPanel();
       }
     }
   };
@@ -42,6 +55,15 @@ export const useLeftPanel = ({ defaultSize = 20, minSize = 0 }: UseLeftPanelProp
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.LEFT_PANEL, JSON.stringify(isCollapsed));
   }, [isCollapsed]);
+
+  // React to imperative opens requested via the global store (e.g. openLeftPanel()
+  // called from outside this component) without fighting the toggle/keyboard-shortcut path.
+  useEffect(() => {
+    if (ref.current && leftPanelOpen && ref.current.isCollapsed()) {
+      ref.current.expand();
+      setIsCollapsed(false);
+    }
+  }, [leftPanelOpen]);
 
   // Keyboard shortcut: Cmd+Shift+E
   useEffect(() => {

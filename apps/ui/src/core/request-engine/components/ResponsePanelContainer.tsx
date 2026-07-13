@@ -8,6 +8,7 @@
  */
 
 import { useResponseStore } from "../stores/responseStore";
+import { useShallow } from "zustand/react/shallow";
 import type { ResponseNodeType } from "../stores/responseStore";
 import { SendRequestButton } from "./SendRequestButton";
 import { ResponseViewer, type ResponseViewerHandle } from "./ResponseViewer";
@@ -90,9 +91,13 @@ export function ResponsePanelContainer() {
   // All plugin-registered response panel sections with results for the active tab
   const pluginResponseSections = useRegisteredResponsePanelSections(activeTabId);
 
+  // Narrow selector: only subscribe to the two fields that affect rendering.
+  // Action methods and getters are read from the store singleton to avoid
+  // triggering re-renders on every scroll-position or tab-ID write.
+  const { isLoading, responses } = useResponseStore(
+    useShallow((s) => ({ isLoading: s.isLoading, responses: s.responses }))
+  );
   const {
-    isLoading,
-    responses,
     setActiveTabId,
     hydrateResponse,
     getActiveResponseNodeForTab,
@@ -101,7 +106,7 @@ export function ResponsePanelContainer() {
     setResponsePanelScrollForTab,
     getResponseNodeScrollsForTab,
     setResponseNodeScrollForTab,
-  } = useResponseStore();
+  } = useResponseStore.getState();
 
   // Keep-alive: ordered list of tab IDs that have a mounted ResponseViewer
   const [cachedResponseTabIds, setCachedResponseTabIds] = useState<string[]>([]);
@@ -686,7 +691,9 @@ export function ResponsePanelContainer() {
           <div className="absolute  ml-2 inset-0 flex items-center justify-center px-4">
             <div className="text-comment text-center">
               Press{" "}
-              <kbd className="px-1 py-0.5 bg-active rounded text-xs">Cmd+Enter</kbd>{" "}
+              <kbd className="px-1 py-0.5 bg-active rounded text-xs">
+                {navigator?.userAgent?.toLowerCase().includes("mac") ? "⌘↵" : "Ctrl+Enter"}
+              </kbd>{" "}
               to execute a request and see the response here.
             </div>
           </div>

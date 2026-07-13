@@ -11,7 +11,7 @@
  */
 
 import { Buffer } from 'node:buffer'
-import { extname } from 'node:path'
+import mimeTypes from 'mime-types'
 import type { RestApiRequestState } from './pipeline/types.js'
 import { executeWebSocket } from './websocket.js'
 import { executeGrpc } from './grpc.js'
@@ -108,18 +108,9 @@ export function addDefaultHttpHeaders(headers: Record<string, string>, url: stri
 }
 
 export function getFileMimeType(filePath: string): string {
-  const ext = extname(filePath).toLowerCase()
-  const mime: Record<string, string> = {
-    '.txt': 'text/plain',   '.html': 'text/html',       '.css': 'text/css',
-    '.js':  'application/javascript', '.json': 'application/json',
-    '.xml': 'application/xml',        '.pdf':  'application/pdf',
-    '.zip': 'application/zip',        '.jpg':  'image/jpeg',
-    '.jpeg': 'image/jpeg',            '.png':  'image/png',
-    '.gif': 'image/gif',              '.svg':  'image/svg+xml',
-    '.mp4': 'video/mp4',              '.mp3':  'audio/mpeg',
-    '.wav': 'audio/wav',
-  }
-  return mime[ext] ?? 'application/octet-stream'
+  // mime-types covers the full mime-db registry (hundreds of extensions),
+  // so new file types are handled automatically without another release.
+  return mimeTypes.lookup(filePath) || 'application/octet-stream'
 }
 
 function validateResolvedOutgoing(

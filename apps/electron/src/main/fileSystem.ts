@@ -166,12 +166,18 @@ export async function createVoidFile(
   // Allow callers to pass nested/new paths by ensuring parent folders exist.
   await fs.promises.mkdir(filePath, { recursive: true });
 
-  let finalName = fileName.endsWith(".void") ? fileName : fileName + ".void";
+  // Derive baseName/ext once, from the target extension — not by re-deriving
+  // from the caller's original (always extensionless) fileName on each loop
+  // iteration, which previously computed an empty ext and silently dropped
+  // .void from every duplicate past the first (e.g. "Get User 1" with no
+  // extension), making the file invisible to the editor's file tree.
+  const baseName = fileName.endsWith(".void") ? fileName.slice(0, -".void".length) : fileName;
+  const ext = ".void";
+
+  let finalName = `${baseName}${ext}`;
   let counter = 1;
 
   while (fs.existsSync(path.join(filePath, finalName))) {
-    const ext = path.extname(fileName);
-    const baseName = path.basename(fileName, ext);
     finalName = `${baseName} ${counter}${ext}`;
     counter++;
   }
@@ -588,9 +594,50 @@ function applyVoidFileReferenceUpdates(
   return { updatedSource, count };
 }
 
-/** Ask all renderer windows to flush unsaved content for the given file paths to disk.
- *  Waits up to 3 seconds for acknowledgment before proceeding. */
-function flushRendererUnsavedForPaths(paths: string[]): Promise<void> {
+/** Ask all renderer windows for the display titles of every currently-unsaved tab.
+ *  Waits up to 3 seconds total, aggregating replies from every window so a second
+ *  window's unsaved tabs are never missed just because another window replied
+ *  first. A window that never replies (stuck/unresponsive) is simply excluded
+ *  rather than blocking quitting indefinitely. */
+export function getUnsavedTabTitles(): Promise<string[]> {
+  return new Promise<string[]>((resolve) => {
+    const windows = BrowserWindow.getAllWindows();
+    if (windows.length === 0) {
+      resolve([]);
+      return;
+    }
+    const requestId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const replyChannel = `files:unsavedTabsReply:${requestId}`;
+    const titles: string[] = [];
+    let remaining = windows.length;
+    let settled = false;
+
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeout);
+      ipcMain.removeListener(replyChannel, onReply);
+      resolve(titles);
+    };
+
+    const timeout = setTimeout(finish, 3000);
+    const onReply = (_event: Electron.IpcMainEvent, windowTitles: string[]) => {
+      titles.push(...windowTitles);
+      remaining -= 1;
+      if (remaining <= 0) finish();
+    };
+
+    ipcMain.on(replyChannel, onReply);
+    for (const w of windows) {
+      w.webContents.send("files:queryUnsavedTabs", requestId);
+    }
+  });
+}
+
+/** Ask all renderer windows to flush unsaved content for the given file paths to disk
+ *  (or every unsaved tab, if `paths` is empty). Waits up to 3 seconds for acknowledgment
+ *  before proceeding. */
+export function flushRendererUnsavedForPaths(paths: string[]): Promise<void> {
   return new Promise<void>((resolve) => {
     const windows = BrowserWindow.getAllWindows();
     if (windows.length === 0) {

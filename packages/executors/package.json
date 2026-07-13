@@ -28,9 +28,11 @@
   },
   "dependencies": {
     "@grpc/grpc-js": "^1.10.0",
+    "mime-types": "^2.1.35",
     "ws": "^8.17.0"
   },
   "devDependencies": {
+    "@types/mime-types": "^2.1.4",
     "@types/node": "^20.14.10",
     "@types/ws": "^8.5.10",
     "typescript": "^5.5.3"

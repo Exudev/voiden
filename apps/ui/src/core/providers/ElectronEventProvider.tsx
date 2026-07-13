@@ -4,6 +4,7 @@ import { EventEmitter } from "events";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { globalSaveFile, saveTabById } from "@/core/file-system/hooks";
+import { useEditorStore } from "@/core/editors/voiden/VoidenEditor";
 import { useLoadEnv, useSetActiveEnv } from "@/core/environment/hooks";
 import { toast } from "@/core/components/ui/sonner";
 import { useFocusStore } from "@/core/stores/focusStore";
@@ -96,6 +97,9 @@ export const ElectronEventProvider: React.FC<{ children: React.ReactNode }> = ({
       },
       "file:create-void": (event: any, data: any) => {
         handleEvent("file:create-void", data);
+      },
+      "file:create-inherited-config": (event: any, data: any) => {
+        handleEvent("file:create-inherited-config", data);
       },
       "directory:create": (event: any, data: any) => {
         handleEvent("directory:create", data);
@@ -291,9 +295,20 @@ export const ElectronEventProvider: React.FC<{ children: React.ReactNode }> = ({
       "files:saveUnsavedForPaths": async (_event: any, requestId: string, paths: string[]) => {
         const panelTabs = queryClient.getQueryData<{ tabs: { id: string; source: string | null }[]; activeTabId: string }>(["panel:tabs", "main"]);
         const tabs = panelTabs?.tabs ?? [];
-        const matchingTabs = tabs.filter((t) => t.source && paths.includes(t.source));
+        // Empty `paths` means "flush every unsaved tab" (used before app restarts,
+        // e.g. installing an update, where the caller doesn't know specific paths).
+        const matchingTabs = paths.length
+          ? tabs.filter((t) => t.source && paths.includes(t.source))
+          : tabs.filter((t) => t.id in useEditorStore.getState().unsaved);
         await Promise.all(matchingTabs.map((t) => saveTabById(t.id, { silent: true })));
         window.electron?.files.acknowledgeUnsavedSaved(requestId);
+      },
+      "files:queryUnsavedTabs": (_event: any, requestId: string) => {
+        const panelTabs = queryClient.getQueryData<{ tabs: { id: string; title: string }[]; activeTabId: string }>(["panel:tabs", "main"]);
+        const tabs = panelTabs?.tabs ?? [];
+        const unsaved = useEditorStore.getState().unsaved;
+        const titles = tabs.filter((t) => t.id in unsaved).map((t) => t.title);
+        window.electron?.files.replyUnsavedTabs(requestId, titles);
       },
     };
 

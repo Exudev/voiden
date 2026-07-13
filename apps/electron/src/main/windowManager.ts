@@ -142,6 +142,10 @@ class WindowManager {
       // Clean up in-memory state only, preserve state file for session restore
       that.windows.delete(id);
       this.browserWindows.delete(id);
+      // Clear stale reference so menu click handlers that do
+      // `windowManager.browserWindow?.webContents.send(...)` see null
+      // instead of a destroyed window, which throws "Object has been destroyed".
+      if (that.browserWindow === win) that.browserWindow = null;
     });
 
     // The last known "normal" (non-zoomed, non-fullscreen) bounds.

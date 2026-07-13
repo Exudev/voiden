@@ -1,6 +1,37 @@
 {
   "releases": [
     {
+      "version": "2.2.0",
+      "date": "July 2026",
+      "whatsnew": [
+        {
+          "icon": "🗂️",
+          "title": "Hierarchical Request Inheritance",
+          "description": "Set auth, headers, or other shared config once in a folder-level file and every request nested inside automatically inherits it — no more copy-pasting the same setup into each request."
+        },
+        {
+          "icon": "📌",
+          "title": "Preview Tabs",
+          "description": "Single-clicking a file now opens it in a reusable preview tab instead of piling up permanent tabs — click into it to make it stick around."
+        },
+        {
+          "icon": "🔔",
+          "title": "Plugin Update Notifications",
+          "description": "Voiden now tells you when a plugin update is available and takes you straight to the Updates tab — no more manually checking the Plugin Manager."
+        },
+        {
+          "icon": "🐛",
+          "title": "Editor Reliability Fixes",
+          "description": "Cmd/Ctrl+F now reliably opens Find in every editor, backspace no longer corrupts content at block boundaries or requires two presses to delete a character in the request URL/method fields and table cells, huge single lines no longer freeze the code editor, scrolling flicker is gone, and a false \"unsaved changes\" indicator on GraphQL files is fixed."
+        },
+        {
+          "icon": "💾",
+          "title": "Quit Confirmation for Unsaved Tabs",
+          "description": "Quitting with unsaved changes no longer saves everything silently or risks losing your edits — Voiden now shows you exactly which tabs are unsaved and lets you save, discard, or cancel before closing."
+        }
+      ]
+    },
+    {
       "version": "2.1.1",
       "date": "June 2026",
       "whatsnew": [
