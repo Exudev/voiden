@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { Editor } from "@tiptap/react";
 import { ExternalLink, HelpCircle } from "lucide-react";
 import * as Tooltip from "@radix-ui/react-tooltip";
+import { getBlockDocsUrl } from "@/plugins";
 
 export const RequestBlockHeader = ({
   title,
@@ -10,6 +11,8 @@ export const RequestBlockHeader = ({
   actions,
   importedDocumentId,
   docsUrl,
+  blockType,
+  blockAttributes,
   helpContent,
   openFile,
 }: {
@@ -20,6 +23,10 @@ export const RequestBlockHeader = ({
   actions?: React.ReactNode;
   /** URL to the canonical docs page for this block. Opens in the system browser when clicked. */
   docsUrl?: string;
+  /** The registered block type name. If passed, it will be used to look up the docsUrl from the plugin registry. */
+  blockType?: string;
+  /** Attributes of the current block node, used for dynamic docsUrl resolution. */
+  blockAttributes?: Record<string, any>;
   /** Optional inline help content shown in a tooltip popover. */
   helpContent?: React.ReactNode;
   /** Optional callback to open a file from within the block (used by scripting plugin). */
@@ -27,15 +34,17 @@ export const RequestBlockHeader = ({
 }) => {
   const [helpOpen, setHelpOpen] = useState(false);
 
+  const resolvedDocsUrl = blockType ? (getBlockDocsUrl(blockType, blockAttributes) ?? docsUrl) : docsUrl;
+
   const handleOpenDocs = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!docsUrl) return;
+    if (!resolvedDocsUrl) return;
     try {
-      (window as any).electron?.utils?.openExternalUrl(docsUrl);
+      (window as any).electron?.utils?.openExternalUrl(resolvedDocsUrl);
     } catch {
       // Fallback: try ipcRenderer send via ipc bridge
-      (window as any).electron?.ipc?.invoke("open-external", docsUrl);
+      (window as any).electron?.ipc?.invoke("open-external", resolvedDocsUrl);
     }
   };
 
@@ -91,7 +100,7 @@ export const RequestBlockHeader = ({
           </Tooltip.Provider>
         )}
 
-        {docsUrl && (
+        {resolvedDocsUrl && (
           <Tooltip.Provider delayDuration={300}>
             <Tooltip.Root>
               <Tooltip.Trigger asChild>
