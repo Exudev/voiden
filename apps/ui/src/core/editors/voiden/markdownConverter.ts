@@ -200,8 +200,8 @@ const nodeNameMap = {
 const hasRenderableContent = (node: Node) =>
   node.textContent.trim().length > 0 || !!(node.attrs?.body && String(node.attrs.body).trim().length > 0);
 
-const codeBlockSerializer = (state: MarkdownSerializerState, node: Node) => {
-  if (node.attrs?.uid && hasRenderableContent(node)) {
+const codeBlockSerializer = (state: MarkdownSerializerState, node: Node, parent?: Node) => {
+  if (node.attrs?.uid && hasRenderableContent(node) && (!parent || parent.type.name === "doc")) {
     fallback(state, node);
     return;
   }
@@ -216,9 +216,9 @@ const codeBlockSerializer = (state: MarkdownSerializerState, node: Node) => {
 
 // --- NEW: Custom serializer for paragraphs ---
 // When a paragraph is empty it outputs two newlines, otherwise it renders normally.
-const paragraphSerializer = (state: MarkdownSerializerState, node: Node) => {
+const paragraphSerializer = (state: MarkdownSerializerState, node: Node, parent?: Node) => {
   if (node.type.name !== "paragraph") return;
-  if (node.attrs?.uid && hasRenderableContent(node)) {
+  if (node.attrs?.uid && hasRenderableContent(node) && (!parent || parent.type.name === "doc")) {
     fallback(state, node);
     return;
   }
@@ -232,7 +232,7 @@ const paragraphSerializer = (state: MarkdownSerializerState, node: Node) => {
 };
 
 const headingSerializer = (state: MarkdownSerializerState, node: Node, parent: Node, index: number) => {
-  if (node.attrs?.uid && hasRenderableContent(node)) {
+  if (node.attrs?.uid && hasRenderableContent(node) && parent.type.name === "doc") {
     fallback(state, node);
     return;
   }
@@ -240,7 +240,7 @@ const headingSerializer = (state: MarkdownSerializerState, node: Node, parent: N
 };
 
 const blockquoteSerializer = (state: MarkdownSerializerState, node: Node, parent: Node, index: number) => {
-  if (node.attrs?.uid && hasRenderableContent(node)) {
+  if (node.attrs?.uid && hasRenderableContent(node) && parent.type.name === "doc") {
     fallback(state, node);
     return;
   }
@@ -1059,11 +1059,18 @@ export function parseMarkdown(markdown: string, schema: Schema) {
             // Parse the text to handle inline code blocks
             const parsed = defaultMarkdownParser.parse(trimmed).toJSON();
             if (parsed.content && parsed.content.length) {
-              // Fix mark types: convert 'em' to 'italic' and 'strong' to 'bold'
-              const fixedContent = fixMarkTypes(parsed.content[0].content);
-              newNodes.push({
-                type: "paragraph",
-                content: fixedContent,
+              // defaultMarkdownParser uses prosemirror-markdown's own snake_case
+              // node names (e.g. list_item, ordered_list) which don't exist in the
+              // TipTap schema (listItem, orderedList). Convert names, and preserve
+              // each node's own type instead of assuming it's always inline text
+              // that can be force-wrapped into a paragraph (e.g. a trimmed piece
+              // can itself parse as a list, not just inline content).
+              parsed.content.forEach((node: any) => {
+                const converted = convertNodeNames(node);
+                if (converted.content) {
+                  converted.content = fixMarkTypes(converted.content);
+                }
+                newNodes.push(converted);
               });
             }
           }
