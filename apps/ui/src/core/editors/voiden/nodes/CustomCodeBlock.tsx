@@ -66,7 +66,6 @@ const CodeBlockView = (props: NodeViewProps) => {
           <CodeEditor
             lang={language}
             readOnly={!isEditable}
-            showReplace={false}
             autofocus={!body && isEditable}
             tiptapProps={{
               ...props,

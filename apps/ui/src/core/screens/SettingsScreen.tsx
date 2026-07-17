@@ -1,17 +1,9 @@
-import { useSettings, ProxyConfig } from "@/core/settings/hooks/useSettings";
+import { useSettings, ProxyConfig, SYSTEM_DEFAULT_FONT, VALID_FONT_FAMILIES } from "@/core/settings/hooks/useSettings";
 import { Check, RefreshCw, Plus, Trash2, Edit2, Palette, FileText, Network, Search, Keyboard, ChevronUp, ChevronDown, Settings, Plug, Code2, Sparkles, Download, Copy, RotateCcw } from "lucide-react";
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import { usePluginStore, type PluginSettingsSection } from "@/plugins";
 import { loadThemeById, getAvailableThemes } from "@/utils/themeLoader";
 import { Kbd } from "@/core/components/ui/kbd";
-
-// Validation constants (should match useSettings.ts)
-const VALID_FONT_FAMILIES = [
-  "Inconsolata",
-  "Geist Mono",
-  "JetBrains Mono",
-  "Fira Code"
-];
 
 const FONT_SIZE_MIN = 10;
 const FONT_SIZE_MAX = 20;
@@ -622,7 +614,7 @@ export const SettingsScreen = () => {
       const result = await window.electron?.themes?.sync();
       if (result?.success) {
         // Reload the current theme to apply any updates
-        const currentTheme = settings.appearance.theme || 'voiden';
+        const currentTheme = settings.appearance.theme || 'cursor-dark';
         await loadThemeById(currentTheme);
 
         // Refresh the available themes list
@@ -928,7 +920,7 @@ export const SettingsScreen = () => {
                   control={
                     <div className="flex items-center gap-1.5">
                       <Select
-                        value={settings.appearance.theme || "voiden"}
+                        value={settings.appearance.theme || "cursor-dark"}
                         onChange={async (e) => {
                           const newTheme = e.target.value;
                           await loadThemeById(newTheme);

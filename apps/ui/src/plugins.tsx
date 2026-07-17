@@ -42,7 +42,7 @@ import { AnyExtension } from "@tiptap/core";
 import { historyAdapterRegistry } from "@/core/history/adapterRegistry";
 import { parseMarkdown } from "@/core/editors/voiden/markdownConverter";
 import { useVoidenEditorStore, useEditorStore } from "@/core/editors/voiden/VoidenEditor";
-import { proseClasses } from "@/core/editors/voiden/VoidenEditor";
+import { proseClasses, previewProseClasses } from "@/core/editors/voiden/VoidenEditor";
 import { useCodeEditorStore } from "@/core/editors/code/CodeEditorStore";
 import { usePanelStore } from "@/core/stores/panelStore";
 import { requestOrchestrator } from "@/core/request-engine/requestOrchestrator";
@@ -517,12 +517,62 @@ export interface BlockOutlineMeta {
    * appear as standalone entries (e.g. `method`, `url` inside a `request` container).
    */
   skip?: boolean;
+  /**
+   * URL to the canonical documentation page for this block type.
+   * When set, an "Open Documentation" item is shown in the block's right-click menu.
+   * Clicking it opens the URL in the system browser.
+   *
+   * The function form also receives the full node — needed when the deciding
+   * signal isn't on this node's own attrs but on a child's (e.g. a shared
+   * container node whose docs page depends on which optional child is
+   * present, like gRPC vs. plain WebSocket both using `socket-request`).
+   */
+  docsUrl?: string | ((attrs: Record<string, any>, node?: any) => string | undefined);
 }
-const blockOutlineRegistry = new Map<string, BlockOutlineMeta>();
+
+const coreBlockOutlineMeta: Record<string, BlockOutlineMeta> = {
+  codeBlock: {
+    label: "Code Block",
+    icon: "Code",
+    docsUrl: "https://docs.voiden.md/docs/core-features-section/voiden-blocks/voiden-basic-blocks",
+  },
+  heading: {
+    label: "Heading",
+    icon: "Heading",
+    docsUrl: "https://docs.voiden.md/docs/core-features-section/voiden-blocks/voiden-basic-blocks",
+  },
+  paragraph: {
+    label: "Paragraph",
+    icon: "Pilcrow",
+    docsUrl: "https://docs.voiden.md/docs/core-features-section/voiden-blocks/voiden-basic-blocks",
+  },
+  blockquote: {
+    label: "Quote",
+    icon: "Quote",
+    docsUrl: "https://docs.voiden.md/docs/core-features-section/voiden-blocks/voiden-basic-blocks",
+  },
+  "runtime-variables": {
+    label: "Runtime Variables",
+    icon: "Variable",
+    docsUrl: "https://docs.voiden.md/docs/core-features-section/variables/runtime-variables",
+  },
+};
+
+const blockOutlineRegistry = new Map<string, BlockOutlineMeta>(Object.entries(coreBlockOutlineMeta));
 
 /** Returns the outline metadata registered by a plugin for a given node type. */
 export function getBlockOutlineMeta(nodeType: string): BlockOutlineMeta | undefined {
   return blockOutlineRegistry.get(nodeType);
+}
+
+/** Returns the docs URL registered for a given node type, if any. */
+export function getBlockDocsUrl(nodeType: string, attrs?: Record<string, any>, node?: any): string | undefined {
+  const meta = blockOutlineRegistry.get(nodeType);
+  if (!meta) return undefined;
+  if (typeof meta.docsUrl === "function") {
+    return meta.docsUrl(attrs || {}, node);
+  }
+  return meta.docsUrl;
 }
 
 // Global registry for loaded plugin instances (for cleanup)
@@ -568,7 +618,7 @@ if (typeof window !== 'undefined') {
     // @/core/* — host app internals exposed for OTA-loaded plugin bundles
     "@/core/file-system/hooks/useFileSystem": { prosemirrorToMarkdown },
     "@/core/editors/voiden/extensions": { voidenExtensions: coreVoidenExtensions, registerCustomVariableHighlighter },
-    "@/core/editors/voiden/VoidenEditor": { useEditorStore, useVoidenEditorStore, proseClasses },
+    "@/core/editors/voiden/VoidenEditor": { useEditorStore, useVoidenEditorStore, proseClasses, previewProseClasses },
     "@/core/editors/voiden/utils/expandLinkedBlocks": { expandLinkedBlocksInDoc },
     "@/core/editors/voiden/markdownConverter": { parseMarkdown },
     "@/core/request-engine/getRequestFromJson": { getTable, parseAuthNode, buildHeadersWithCookies, findNode, findNodes, createNewRequestObject, getRequest },
@@ -991,6 +1041,17 @@ export const createPlugin = (
           classes = proseClasses;
         } else {
           classes = String(proseClasses);
+        }
+        return classes;
+      },
+      getPreviewProseClasses: () => {
+        let classes: string;
+        if (Array.isArray(previewProseClasses)) {
+          classes = previewProseClasses.join(" ");
+        } else if (typeof previewProseClasses === 'string') {
+          classes = previewProseClasses;
+        } else {
+          classes = String(previewProseClasses);
         }
         return classes;
       },
@@ -1438,6 +1499,7 @@ export const getPlugins = async () => {
   Object.entries(coreNodeDisplayNames).forEach(([type, name]) => nodeDisplayNames.set(type, name)); // Re-seed core display names
   tableSuggestionsRegistry.clear();
   blockOutlineRegistry.clear();
+  Object.entries(coreBlockOutlineMeta).forEach(([type, meta]) => blockOutlineRegistry.set(type, meta));
   clearHelpRegistry();
   requestOrchestrator.clear();
   pasteOrchestrator.clear();

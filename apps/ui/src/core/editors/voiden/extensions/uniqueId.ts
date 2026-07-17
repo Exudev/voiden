@@ -60,7 +60,18 @@ const UniqueID = Extension.create<UniqueIdOptions>({
 
             if (requireTopLevel.includes(node.type.name)) {
               const parent = newState.doc.resolve(pos).parent;
-              if (parent.type.name !== "doc") return;
+              if (parent.type.name !== "doc") {
+                // A node can arrive here already carrying a uid from before it
+                // became nested (e.g. a paragraph wrapped into a listItem by
+                // an input rule, or cloned with its attrs intact by
+                // splitListItem on Enter). Strip it so nested nodes never
+                // keep — or duplicate — a stale top-level uid.
+                if ((node.attrs as Record<string, string | null | undefined>)[attributeName]) {
+                  tr = tr ?? newState.tr;
+                  tr.setNodeMarkup(pos, undefined, { ...node.attrs, [attributeName]: null }, node.marks);
+                }
+                return;
+              }
             }
 
             const existing = (node.attrs as Record<string, string | null | undefined>)[attributeName];
