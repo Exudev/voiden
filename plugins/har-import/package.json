@@ -1,0 +1,13 @@
+{
+  "name": "@voiden/har-import",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/har-import.js",
+  "scripts": {
+    "build": "node ../../scripts/build-plugins.mjs har-import"
+  },
+  "dependencies": {
+    "@voiden/sdk": "^1.0.0"
+  }
+}
