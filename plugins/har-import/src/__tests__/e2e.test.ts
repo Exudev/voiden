@@ -40,7 +40,8 @@ describe('End-to-End HAR Import Test', () => {
 
     // Test 1: Ignore static assets = true
     const result = await importHarLog(harContent, '/test-project', { ignoreStaticAssets: true });
-    expect(result.success).toBe(true);
+    expect(result).toBeDefined();
+    expect(result!.success).toBe(true);
 
     const createdPaths = Object.keys(mockFilesCreated);
     expect(createdPaths.length).toBe(3);
@@ -62,7 +63,8 @@ describe('End-to-End HAR Import Test', () => {
     };
 
     const result2 = await importHarLog(harContent, '/test-project', { ignoreStaticAssets: false });
-    expect(result2.success).toBe(true);
+    expect(result2).toBeDefined();
+    expect(result2!.success).toBe(true);
     expect(Object.keys(mockFilesUnfiltered).length).toBe(5);
   });
 });
