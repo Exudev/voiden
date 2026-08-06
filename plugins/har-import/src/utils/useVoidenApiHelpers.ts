@@ -20,7 +20,8 @@ export interface VoidenApiHelpers {
  * Get voiden-api helpers from the global window object
  */
 export function getVoidenApiHelpers(): VoidenApiHelpers {
-  const helpers = (window as any).__voidenHelpers__?.['voiden-wrapper-api-extension'];
+  const g = typeof window !== 'undefined' ? window : (globalThis as any);
+  const helpers = g.__voidenHelpers__?.['voiden-wrapper-api-extension'];
 
   if (!helpers) {
     throw new Error(
