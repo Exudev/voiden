@@ -52,8 +52,8 @@ const V = window.__voiden_shims__["@tanstack/react-query"], {
   replaceEqualDeep: Ge,
   hashKey: Ke
 } = V;
-function Q(t) {
-  return t && typeof t == "object" && t.log && typeof t.log == "object" && Array.isArray(t.log.entries);
+function Q(r) {
+  return r && typeof r == "object" && r.log && typeof r.log == "object" && Array.isArray(r.log.entries);
 }
 const $ = /* @__PURE__ */ new Set([
   "png",
@@ -105,22 +105,22 @@ const $ = /* @__PURE__ */ new Set([
   "application/x-font-ttf",
   "application/vnd.ms-fontobject"
 ]);
-function J(t, o) {
+function J(r, o) {
   if (o) {
-    const r = o.split(";")[0].trim().toLowerCase();
-    if (X.has(r) || W.some((e) => r.startsWith(e))) return !0;
+    const t = o.split(";")[0].trim().toLowerCase();
+    if (X.has(t) || W.some((e) => t.startsWith(e))) return !0;
   }
   try {
-    const e = new URL(t).pathname, i = e.lastIndexOf(".");
+    const e = new URL(r).pathname, i = e.lastIndexOf(".");
     if (i !== -1 && i < e.length - 1) {
       const a = e.slice(i + 1).toLowerCase();
       if ($.has(a))
         return !0;
     }
   } catch {
-    const r = t.split("?")[0].split("#")[0].toLowerCase(), e = r.lastIndexOf(".");
-    if (e !== -1 && e < r.length - 1) {
-      const i = r.slice(e + 1);
+    const t = r.split("?")[0].split("#")[0].toLowerCase(), e = t.lastIndexOf(".");
+    if (e !== -1 && e < t.length - 1) {
+      const i = t.slice(e + 1);
       if ($.has(i))
         return !0;
     }
@@ -128,71 +128,71 @@ function J(t, o) {
   return !1;
 }
 function z() {
-  var o;
-  const t = (o = window.__voidenHelpers__) == null ? void 0 : o["voiden-wrapper-api-extension"];
-  if (!t)
+  var t;
+  const o = (t = (typeof window < "u" ? window : globalThis).__voidenHelpers__) == null ? void 0 : t["voiden-wrapper-api-extension"];
+  if (!o)
     throw new Error(
       "Voiden API helpers not found. Make sure voiden-wrapper-api-extension is loaded before har-import."
     );
-  return t;
+  return o;
 }
-function j(t) {
-  return !t || !t.trim() ? "unnamed-request" : t.trim().replace(/\/+/g, "-").replace(/[^a-zA-Z0-9-\s_.]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").replace(/^-+/, "").replace(/-+$/, "");
+function j(r) {
+  return !r || !r.trim() ? "unnamed-request" : r.trim().replace(/\/+/g, "-").replace(/[^a-zA-Z0-9-\s_.]/g, "").replace(/\s+/g, "-").replace(/-+/g, "-").replace(/^-+/, "").replace(/-+$/, "");
 }
-function G(t) {
-  const o = (t.mimeType || "").toLowerCase();
+function G(r) {
+  const o = (r.mimeType || "").toLowerCase();
   if (o.includes("application/json") || o.includes("+json")) return "json";
   if (o.includes("application/xml") || o.includes("text/xml") || o.includes("+xml")) return "xml";
   if (o.includes("text/html")) return "html";
-  if (t.text) {
-    const r = t.text.trim();
-    if (r.startsWith("{") || r.startsWith("[")) return "json";
-    if (r.startsWith("<"))
-      return r.toLowerCase().includes("<!doctype html") || r.toLowerCase().includes("<html") ? "html" : "xml";
+  if (r.text) {
+    const t = r.text.trim();
+    if (t.startsWith("{") || t.startsWith("[")) return "json";
+    if (t.startsWith("<"))
+      return t.toLowerCase().includes("<!doctype html") || t.toLowerCase().includes("<html") ? "html" : "xml";
   }
   return "text";
 }
-function M(t) {
-  if (t.comment) return t.comment;
+function M(r) {
+  if (r.comment) return r.comment;
   try {
-    const o = new URL(t.request.url), e = o.pathname.replace(/\/$/, "").split("/").filter(Boolean), i = e.length > 0 ? e[e.length - 1] : o.hostname;
-    return `${t.request.method} ${i}`;
+    const o = new URL(r.request.url), e = o.pathname.replace(/\/$/, "").split("/").filter(Boolean), i = e.length > 0 ? e[e.length - 1] : o.hostname;
+    return `${r.request.method} ${i}`;
   } catch {
-    return `${t.request.method} ${t.request.url.slice(0, 30)}`;
+    return `${r.request.method} ${r.request.url.slice(0, 30)}`;
   }
 }
-const K = async (t) => {
-  const o = z(), r = t.request, e = [], i = (r.method || "GET").toUpperCase(), a = {
+const K = async (r) => {
+  const o = z(), t = r.request, e = [], i = (t.method || "GET").toUpperCase(), a = {
     type: "request",
     content: [
       o.createMethodNode(i),
-      o.createUrlNode(r.url)
+      o.createUrlNode(t.url)
     ]
   };
   e.push(a);
-  const c = [], n = (r.headers || []).some(
+  const c = [], n = (t.headers || []).some(
     (s) => s.name.toLowerCase() === "cookie"
   );
-  if (r.headers && r.headers.length > 0) {
-    for (const s of r.headers)
+  if (t.headers && t.headers.length > 0) {
+    for (const s of t.headers)
       if (s.name && s.value !== void 0) {
         if (s.name.startsWith(":")) continue;
         c.push([s.name, s.value]);
       }
   }
-  if (!n && r.cookies && r.cookies.length > 0) {
-    const s = r.cookies.map((u) => `${u.name}=${u.value}`).join("; ");
+  if (!n && t.cookies && t.cookies.length > 0) {
+    const s = t.cookies.map((u) => `${u.name}=${u.value}`).join("; ");
     c.push(["Cookie", s]);
   }
-  if (c.length > 0 && e.push(o.createHeadersTableNode(c)), r.queryString && r.queryString.length > 0) {
-    const s = r.queryString.map((u) => [
+  if (c.length > 0 && e.push(o.createHeadersTableNode(c)), t.queryString && t.queryString.length > 0) {
+    const s = t.queryString.map((u) => [
       u.name,
       u.value || ""
     ]);
     e.push(o.createQueryTableNode(s));
   }
-  if (r.postData) {
-    const s = r.postData, u = (s.mimeType || "").toLowerCase();
+  if (t.postData) {
+    const s = t.postData, u = (s.mimeType || "").toLowerCase();
     if (u.includes("application/x-www-form-urlencoded") && s.params && s.params.length > 0) {
       const p = s.params.map((d) => [
         d.name,
@@ -210,16 +210,16 @@ const K = async (t) => {
       p === "json" ? e.push(o.createJsonBodyNode(s.text, "json")) : p === "xml" ? e.push(o.createXMLBodyNode(s.text, "xml")) : p === "html" ? e.push(o.createXMLBodyNode(s.text, "html")) : e.push(o.createJsonBodyNode(s.text, "text"));
     }
   }
-  const l = M(t);
+  const l = M(r);
   return o.convertBlocksToVoidFile(l, e);
 };
-function Z(t, o = !0) {
+function Z(r, o = !0) {
   var i, a, c;
-  const r = {}, e = /* @__PURE__ */ new Map();
-  if (t.pages && t.pages.length > 0)
-    for (const n of t.pages)
+  const t = {}, e = /* @__PURE__ */ new Map();
+  if (r.pages && r.pages.length > 0)
+    for (const n of r.pages)
       e.set(n.id, j(n.title || n.id));
-  for (const n of t.entries) {
+  for (const n of r.entries) {
     if (!n.request || !n.request.url) continue;
     if (o) {
       const s = ((a = (i = n.response) == null ? void 0 : i.content) == null ? void 0 : a.mimeType) || ((c = n.request.postData) == null ? void 0 : c.mimeType);
@@ -236,23 +236,23 @@ function Z(t, o = !0) {
       } catch {
         l = "general-requests";
       }
-    r[l] || (r[l] = []), r[l].push(n);
+    t[l] || (t[l] = []), t[l].push(n);
   }
-  return r;
+  return t;
 }
-const Y = async (t, o) => {
+const Y = async (r, o) => {
   var a, c, n, l;
-  const r = await K(t), e = j(M(t)), i = await ((c = (a = window.electron) == null ? void 0 : a.files) == null ? void 0 : c.createVoid(
+  const t = await K(r), e = j(M(r)), i = await ((c = (a = window.electron) == null ? void 0 : a.files) == null ? void 0 : c.createVoid(
     o,
     e
   ));
-  i != null && i.path && await ((l = (n = window.electron) == null ? void 0 : n.files) == null ? void 0 : l.write(i.path, r));
-}, ee = async (t, o, r = {}, e, i, a) => {
+  i != null && i.path && await ((l = (n = window.electron) == null ? void 0 : n.files) == null ? void 0 : l.write(i.path, t));
+}, ee = async (r, o, t = {}, e, i, a) => {
   var k, S, _, A, N;
-  const c = JSON.parse(t), n = Q(c) ? c.log : c;
+  const c = JSON.parse(r), n = Q(c) ? c.log : c;
   if (!n || !Array.isArray(n.entries))
     throw new Error("Invalid HAR file format: missing log entries");
-  const l = r.ignoreStaticAssets ?? !0, s = Z(n, l);
+  const l = t.ignoreStaticAssets ?? !0, s = Z(n, l);
   let u = 0;
   for (const g in s)
     u += s[g].length;
@@ -291,11 +291,11 @@ const Y = async (t, o) => {
     success: !0,
     message: `Imported ${b} requests successfully`
   };
-}, te = window.__voiden_shims__["lucide-react"] || {}, { AlertCircle: Ze, ArrowDown: Ye, ArrowDownLeft: et, ArrowLeft: tt, ArrowLeftRight: rt, ArrowRight: ot, ArrowUp: st, ArrowUpRight: nt, BookOpen: it, Check: at, CheckCheck: ct, ChevronDown: lt, ChevronRight: ut, ChevronsDownUp: dt, ChevronsUpDown: pt, Circle: mt, CircleAlert: ft, CircleX: ht, Clock: gt, Columns2: wt, Copy: yt, CornerDownLeft: vt, CornerDownRight: xt, Download: bt, ExternalLink: Ct, Eye: It, FileDown: Tt, FileText: kt, Folder: St, FolderOpen: _t, History: At, Info: Nt, Link: qt, Loader: Et, Loader2: Pt, Mouse: jt, Pen: Ht, Pencil: Rt, Play: Lt, Plus: Mt, Radio: Dt, RefreshCw: $t, Rows: Ot, Search: Ut, SkipForward: Ft, Sparkles: Vt, Square: Bt, Trash2: Qt, Unlink: Wt, Wifi: Xt, WifiOff: Jt, WrapText: zt, X: re, XCircle: oe } = te, P = /* @__PURE__ */ new Map(), R = /* @__PURE__ */ new Map(), se = ({ tab: t, showToast: o }) => {
-  const r = P.get(t.tabId), [e, i] = I((r == null ? void 0 : r.progress) ?? { current: 0, total: 0 }), [a, c] = I((r == null ? void 0 : r.isImporting) ?? !1), [n, l] = I((r == null ? void 0 : r.error) ?? null), [s, u] = I((r == null ? void 0 : r.ignoreStaticAssets) ?? !0), [p, d] = I(!1), v = F(null);
+}, te = window.__voiden_shims__["lucide-react"] || {}, { AlertCircle: Ze, ArrowDown: Ye, ArrowDownLeft: et, ArrowLeft: tt, ArrowLeftRight: rt, ArrowRight: ot, ArrowUp: st, ArrowUpRight: nt, BookOpen: it, Check: at, CheckCheck: ct, ChevronDown: lt, ChevronRight: ut, ChevronsDownUp: dt, ChevronsUpDown: pt, Circle: mt, CircleAlert: ft, CircleX: ht, Clock: gt, Columns2: wt, Copy: yt, CornerDownLeft: vt, CornerDownRight: xt, Download: bt, ExternalLink: Ct, Eye: It, FileDown: Tt, FileText: kt, Folder: St, FolderOpen: _t, History: At, Info: Nt, Link: qt, Loader: Et, Loader2: Pt, Mouse: jt, Pen: Ht, Pencil: Rt, Play: Lt, Plus: Mt, Radio: Dt, RefreshCw: $t, Rows: Ot, Search: Ut, SkipForward: Ft, Sparkles: Vt, Square: Bt, Trash2: Qt, Unlink: Wt, Wifi: Xt, WifiOff: Jt, WrapText: zt, X: re, XCircle: oe } = te, P = /* @__PURE__ */ new Map(), R = /* @__PURE__ */ new Map(), se = ({ tab: r, showToast: o }) => {
+  const t = P.get(r.tabId), [e, i] = I((t == null ? void 0 : t.progress) ?? { current: 0, total: 0 }), [a, c] = I((t == null ? void 0 : t.isImporting) ?? !1), [n, l] = I((t == null ? void 0 : t.error) ?? null), [s, u] = I((t == null ? void 0 : t.ignoreStaticAssets) ?? !0), [p, d] = I(!1), v = F(null);
   D(() => {
-    P.set(t.tabId, { isImporting: a, progress: e, error: n, ignoreStaticAssets: s });
-  }, [t.tabId, a, e, n, s]);
+    P.set(r.tabId, { isImporting: a, progress: e, error: n, ignoreStaticAssets: s });
+  }, [r.tabId, a, e, n, s]);
   const b = B();
   D(() => {
     if (n) {
@@ -309,20 +309,20 @@ const Y = async (t, o) => {
     }
   }, [n]);
   const k = () => {
-    v.current && (v.current.cancelled = !0), c(!1), i({ current: 0, total: 0 }), P.delete(t.tabId), R.delete(t.tabId);
+    v.current && (v.current.cancelled = !0), c(!1), i({ current: 0, total: 0 }), P.delete(r.tabId), R.delete(r.tabId);
   }, S = async () => {
     var m, x;
     try {
       l(null), d(!1), c(!0), i({ current: 0, total: 0 });
       const h = { cancelled: !1 };
-      v.current = h, R.set(t.tabId, h);
+      v.current = h, R.set(r.tabId, h);
       const w = b.getQueryData(["projects"]), q = w == null ? void 0 : w.activeProject;
       if (!q) {
         l("No active project found"), c(!1);
         return;
       }
-      let f = t.content;
-      if ((!f || f.trim() === "") && t.source && (f = await ((x = (m = window.electron) == null ? void 0 : m.files) == null ? void 0 : x.read(t.source)) ?? ""), !f || f.trim() === "") {
+      let f = r.content;
+      if ((!f || f.trim() === "") && r.source && (f = await ((x = (m = window.electron) == null ? void 0 : m.files) == null ? void 0 : x.read(r.source)) ?? ""), !f || f.trim() === "") {
         l("HAR file content is empty"), c(!1);
         return;
       }
@@ -346,7 +346,7 @@ const Y = async (t, o) => {
         h
       );
       if (h.cancelled) return;
-      E != null && E.message && o && o(E.message, "success"), i({ current: 0, total: 0 }), c(!1), P.delete(t.tabId), R.delete(t.tabId);
+      E != null && E.message && o && o(E.message, "success"), i({ current: 0, total: 0 }), c(!1), P.delete(r.tabId), R.delete(r.tabId);
     } catch (h) {
       console.error("Failed to import HAR file:", h);
       const w = h instanceof Error ? h.message : "Failed to import HAR file";
@@ -416,12 +416,12 @@ const Y = async (t, o) => {
       }
     )
   ] });
-}, Gt = (t) => {
-  var r;
-  const o = (r = t == null ? void 0 : t.ui) == null ? void 0 : r.showToast;
+}, Gt = (r) => {
+  var t;
+  const o = (t = r == null ? void 0 : r.ui) == null ? void 0 : t.showToast;
   return {
     onload: () => {
-      t.registerEditorAction({
+      r.registerEditorAction({
         id: "har-import-button",
         component: (e) => O.createElement(se, {
           ...e,
