@@ -81,9 +81,9 @@ async function K(a, d, t) {
 }
 async function q(a, d, t, n = "HS256") {
   const s = {
-    alg: n,
     typ: "JWT",
-    ...a
+    ...a,
+    alg: n
   }, i = H(JSON.stringify(s)), c = H(JSON.stringify(d)), l = `${i}.${c}`;
   if (n === "none")
     return `${l}.`;

@@ -102,9 +102,9 @@ export async function generateJwt(
   algorithm: JwtAlgorithm = 'HS256'
 ): Promise<string> {
   const fullHeader: JwtHeader = {
-    alg: algorithm,
     typ: 'JWT',
     ...header,
+    alg: algorithm,
   };
 
   const encodedHeader = base64urlEncode(JSON.stringify(fullHeader));
