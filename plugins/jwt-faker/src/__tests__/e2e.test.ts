@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 import { describe, it, expect } from 'vitest';
 import { generateJwt, decodeJwt, getClaimTimestamp } from '../utils/jwtUtils';
+import type { JwtHeader } from '../utils/types';
 
 describe('JWT Faker End-to-End Test Suite', () => {
   const secret = 'super-secret-passphrase-key';
-  const customHeader = { alg: 'HS256', typ: 'JWT', custom_header_key: 'test_val' };
+  const customHeader: JwtHeader = { alg: 'HS256', typ: 'JWT', custom_header_key: 'test_val' };
   const customPayload = {
     sub: '123456789',
     email: 'john@example.com',

@@ -102,8 +102,8 @@ export async function generateJwt(
   algorithm: JwtAlgorithm = 'HS256'
 ): Promise<string> {
   const fullHeader: JwtHeader = {
-    typ: 'JWT',
     ...header,
+    typ: header.typ || 'JWT',
     alg: algorithm,
   };
 
