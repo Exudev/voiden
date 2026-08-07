@@ -1,7 +1,8 @@
 /**
  * JWT Faker Plugin
  *
- * Enables generating, customizing, signing, decoding, and copying JSON Web Tokens (JWTs) for API authentication testing.
+ * Provides JSON Web Token (JWT) generation, HMAC signing (HS256, HS384, HS512),
+ * unsigned token support (alg: none), decoding, claim quick-helpers, and template management.
  */
 
 import type { PluginContext } from '@voiden/sdk/ui';
